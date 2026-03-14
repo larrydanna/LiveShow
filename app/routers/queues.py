@@ -1,110 +1,106 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from app.database import get_db
+from __future__ import absolute_import
+
+from flask import Blueprint, request, jsonify, g, abort
 from app import models, schemas
 
-router = APIRouter(prefix="/api/queues", tags=["queues"])
+blueprint = Blueprint("queues", __name__)
 
 
-def _build_queue_detail(queue: models.ScriptQueue, db: Session) -> schemas.QueueDetail:
+def _build_queue_detail(queue):
     items = (
-        db.query(models.ScriptQueueItem)
+        g.db.query(models.ScriptQueueItem)
         .filter(models.ScriptQueueItem.queue_id == queue.id)
         .order_by(models.ScriptQueueItem.position.asc())
         .all()
     )
     script_items = []
     for item in items:
-        script = db.query(models.Script).filter(models.Script.id == item.script_id).first()
+        script = g.db.query(models.Script).filter(models.Script.id == item.script_id).first()
         if script:
-            script_items.append(
-                schemas.QueueItemSchema(
-                    id=item.id,
-                    script_id=item.script_id,
-                    position=item.position,
-                    script=schemas.ScriptListItem.model_validate(script),
-                )
-            )
-    return schemas.QueueDetail(
-        id=queue.id,
-        name=queue.name,
-        created_at=queue.created_at,
-        scripts=script_items,
-    )
+            script_items.append(schemas.queue_item_schema(item, script))
+    return schemas.queue_detail(queue, script_items)
 
 
-@router.get("", response_model=list[schemas.QueueListItem])
-def list_queues(db: Session = Depends(get_db)):
-    return db.query(models.ScriptQueue).all()
+@blueprint.route("/api/queues", methods=["GET"])
+def list_queues():
+    queues = g.db.query(models.ScriptQueue).all()
+    return jsonify([schemas.queue_list_item(q) for q in queues])
 
 
-@router.get("/{queue_id}", response_model=schemas.QueueDetail)
-def get_queue(queue_id: int, db: Session = Depends(get_db)):
-    queue = db.query(models.ScriptQueue).filter(models.ScriptQueue.id == queue_id).first()
+@blueprint.route("/api/queues/<int:queue_id>", methods=["GET"])
+def get_queue(queue_id):
+    queue = g.db.query(models.ScriptQueue).filter(models.ScriptQueue.id == queue_id).first()
     if not queue:
-        raise HTTPException(status_code=404, detail="Queue not found")
-    return _build_queue_detail(queue, db)
+        abort(404)
+    return jsonify(_build_queue_detail(queue))
 
 
-@router.post("", response_model=schemas.QueueListItem, status_code=201)
-def create_queue(payload: schemas.QueueCreate, db: Session = Depends(get_db)):
-    queue = models.ScriptQueue(**payload.model_dump())
-    db.add(queue)
-    db.commit()
-    db.refresh(queue)
-    return queue
+@blueprint.route("/api/queues", methods=["POST"])
+def create_queue():
+    payload = request.get_json()
+    if not payload:
+        abort(400)
+    queue = models.ScriptQueue(name=payload.get("name", ""))
+    g.db.add(queue)
+    g.db.commit()
+    g.db.refresh(queue)
+    return jsonify(schemas.queue_list_item(queue)), 201
 
 
-@router.put("/{queue_id}", response_model=schemas.QueueListItem)
-def update_queue(queue_id: int, payload: schemas.QueueUpdate, db: Session = Depends(get_db)):
-    queue = db.query(models.ScriptQueue).filter(models.ScriptQueue.id == queue_id).first()
+@blueprint.route("/api/queues/<int:queue_id>", methods=["PUT"])
+def update_queue(queue_id):
+    queue = g.db.query(models.ScriptQueue).filter(models.ScriptQueue.id == queue_id).first()
     if not queue:
-        raise HTTPException(status_code=404, detail="Queue not found")
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(queue, field, value)
-    db.commit()
-    db.refresh(queue)
-    return queue
+        abort(404)
+    payload = request.get_json() or {}
+    if "name" in payload:
+        queue.name = payload["name"]
+    g.db.commit()
+    g.db.refresh(queue)
+    return jsonify(schemas.queue_list_item(queue))
 
 
-@router.delete("/{queue_id}")
-def delete_queue(queue_id: int, db: Session = Depends(get_db)):
-    queue = db.query(models.ScriptQueue).filter(models.ScriptQueue.id == queue_id).first()
+@blueprint.route("/api/queues/<int:queue_id>", methods=["DELETE"])
+def delete_queue(queue_id):
+    queue = g.db.query(models.ScriptQueue).filter(models.ScriptQueue.id == queue_id).first()
     if not queue:
-        raise HTTPException(status_code=404, detail="Queue not found")
-    db.query(models.ScriptQueueItem).filter(models.ScriptQueueItem.queue_id == queue_id).delete()
-    db.delete(queue)
-    db.commit()
-    return {"ok": True}
+        abort(404)
+    g.db.query(models.ScriptQueueItem).filter(models.ScriptQueueItem.queue_id == queue_id).delete()
+    g.db.delete(queue)
+    g.db.commit()
+    return jsonify({"ok": True})
 
 
-@router.post("/{queue_id}/scripts", response_model=schemas.QueueDetail)
-def add_script_to_queue(
-    queue_id: int, payload: schemas.AddScriptToQueue, db: Session = Depends(get_db)
-):
-    queue = db.query(models.ScriptQueue).filter(models.ScriptQueue.id == queue_id).first()
+@blueprint.route("/api/queues/<int:queue_id>/scripts", methods=["POST"])
+def add_script_to_queue(queue_id):
+    queue = g.db.query(models.ScriptQueue).filter(models.ScriptQueue.id == queue_id).first()
     if not queue:
-        raise HTTPException(status_code=404, detail="Queue not found")
-    script = db.query(models.Script).filter(models.Script.id == payload.script_id).first()
+        abort(404)
+    payload = request.get_json() or {}
+    script_id = payload.get("script_id")
+    if script_id is None:
+        abort(400)
+    script = g.db.query(models.Script).filter(models.Script.id == script_id).first()
     if not script:
-        raise HTTPException(status_code=404, detail="Script not found")
+        abort(404)
+    position = payload.get("position", 0) or 0
     item = models.ScriptQueueItem(
         queue_id=queue_id,
-        script_id=payload.script_id,
-        position=payload.position if payload.position is not None else 0,
+        script_id=script_id,
+        position=position,
     )
-    db.add(item)
-    db.commit()
-    return _build_queue_detail(queue, db)
+    g.db.add(item)
+    g.db.commit()
+    return jsonify(_build_queue_detail(queue))
 
 
-@router.delete("/{queue_id}/scripts/{script_id}", response_model=schemas.QueueDetail)
-def remove_script_from_queue(queue_id: int, script_id: int, db: Session = Depends(get_db)):
-    queue = db.query(models.ScriptQueue).filter(models.ScriptQueue.id == queue_id).first()
+@blueprint.route("/api/queues/<int:queue_id>/scripts/<int:script_id>", methods=["DELETE"])
+def remove_script_from_queue(queue_id, script_id):
+    queue = g.db.query(models.ScriptQueue).filter(models.ScriptQueue.id == queue_id).first()
     if not queue:
-        raise HTTPException(status_code=404, detail="Queue not found")
+        abort(404)
     item = (
-        db.query(models.ScriptQueueItem)
+        g.db.query(models.ScriptQueueItem)
         .filter(
             models.ScriptQueueItem.queue_id == queue_id,
             models.ScriptQueueItem.script_id == script_id,
@@ -112,28 +108,30 @@ def remove_script_from_queue(queue_id: int, script_id: int, db: Session = Depend
         .first()
     )
     if item:
-        db.delete(item)
-        db.commit()
-    return _build_queue_detail(queue, db)
+        g.db.delete(item)
+        g.db.commit()
+    return jsonify(_build_queue_detail(queue))
 
 
-@router.put("/{queue_id}/scripts/reorder", response_model=schemas.QueueDetail)
-def reorder_scripts(
-    queue_id: int, payload: list[schemas.ReorderItem], db: Session = Depends(get_db)
-):
-    queue = db.query(models.ScriptQueue).filter(models.ScriptQueue.id == queue_id).first()
+@blueprint.route("/api/queues/<int:queue_id>/scripts/reorder", methods=["PUT"])
+def reorder_scripts(queue_id):
+    queue = g.db.query(models.ScriptQueue).filter(models.ScriptQueue.id == queue_id).first()
     if not queue:
-        raise HTTPException(status_code=404, detail="Queue not found")
+        abort(404)
+    payload = request.get_json() or []
     for reorder in payload:
+        s_id = reorder.get("script_id")
+        if s_id is None:
+            continue
         item = (
-            db.query(models.ScriptQueueItem)
+            g.db.query(models.ScriptQueueItem)
             .filter(
                 models.ScriptQueueItem.queue_id == queue_id,
-                models.ScriptQueueItem.script_id == reorder.script_id,
+                models.ScriptQueueItem.script_id == s_id,
             )
             .first()
         )
         if item:
-            item.position = reorder.position
-    db.commit()
-    return _build_queue_detail(queue, db)
+            item.position = reorder.get("position", item.position)
+    g.db.commit()
+    return jsonify(_build_queue_detail(queue))

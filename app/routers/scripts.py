@@ -1,50 +1,60 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from app.database import get_db
+from __future__ import absolute_import
+
+from flask import Blueprint, request, jsonify, g, abort
 from app import models, schemas
 
-router = APIRouter(prefix="/api/scripts", tags=["scripts"])
+blueprint = Blueprint("scripts", __name__)
 
 
-@router.get("", response_model=list[schemas.ScriptListItem])
-def list_scripts(db: Session = Depends(get_db)):
-    return db.query(models.Script).all()
+@blueprint.route("/api/scripts", methods=["GET"])
+def list_scripts():
+    items = g.db.query(models.Script).all()
+    return jsonify([schemas.script_list_item(s) for s in items])
 
 
-@router.get("/{script_id}", response_model=schemas.ScriptDetail)
-def get_script(script_id: int, db: Session = Depends(get_db)):
-    script = db.query(models.Script).filter(models.Script.id == script_id).first()
+@blueprint.route("/api/scripts/<int:script_id>", methods=["GET"])
+def get_script(script_id):
+    script = g.db.query(models.Script).filter(models.Script.id == script_id).first()
     if not script:
-        raise HTTPException(status_code=404, detail="Script not found")
-    return script
+        abort(404)
+    return jsonify(schemas.script_detail(script))
 
 
-@router.post("", response_model=schemas.ScriptDetail, status_code=201)
-def create_script(payload: schemas.ScriptCreate, db: Session = Depends(get_db)):
-    script = models.Script(**payload.model_dump())
-    db.add(script)
-    db.commit()
-    db.refresh(script)
-    return script
+@blueprint.route("/api/scripts", methods=["POST"])
+def create_script():
+    payload = request.get_json()
+    if not payload:
+        abort(400)
+    script = models.Script(
+        title=payload.get("title", ""),
+        body=payload.get("body", ""),
+        submitted_by=payload.get("submitted_by", ""),
+    )
+    g.db.add(script)
+    g.db.commit()
+    g.db.refresh(script)
+    return jsonify(schemas.script_detail(script)), 201
 
 
-@router.put("/{script_id}", response_model=schemas.ScriptDetail)
-def update_script(script_id: int, payload: schemas.ScriptUpdate, db: Session = Depends(get_db)):
-    script = db.query(models.Script).filter(models.Script.id == script_id).first()
+@blueprint.route("/api/scripts/<int:script_id>", methods=["PUT"])
+def update_script(script_id):
+    script = g.db.query(models.Script).filter(models.Script.id == script_id).first()
     if not script:
-        raise HTTPException(status_code=404, detail="Script not found")
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(script, field, value)
-    db.commit()
-    db.refresh(script)
-    return script
+        abort(404)
+    payload = request.get_json() or {}
+    for field in ("title", "body", "submitted_by"):
+        if field in payload:
+            setattr(script, field, payload[field])
+    g.db.commit()
+    g.db.refresh(script)
+    return jsonify(schemas.script_detail(script))
 
 
-@router.delete("/{script_id}")
-def delete_script(script_id: int, db: Session = Depends(get_db)):
-    script = db.query(models.Script).filter(models.Script.id == script_id).first()
+@blueprint.route("/api/scripts/<int:script_id>", methods=["DELETE"])
+def delete_script(script_id):
+    script = g.db.query(models.Script).filter(models.Script.id == script_id).first()
     if not script:
-        raise HTTPException(status_code=404, detail="Script not found")
-    db.delete(script)
-    db.commit()
-    return {"ok": True}
+        abort(404)
+    g.db.delete(script)
+    g.db.commit()
+    return jsonify({"ok": True})

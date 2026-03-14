@@ -1,48 +1,54 @@
-from fastapi import FastAPI, APIRouter, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, Response
-from app.database import engine, Base
+from __future__ import absolute_import
+
+from flask import Flask, request, jsonify, send_file, g, Response, abort
+from flask_cors import CORS
+from app.database import engine, Base, SessionLocal
 from app.routers import scripts, queues
 import io
 import logging
 import os
 import socket
-import urllib.parse
-import qrcode
-import qrcode.image.svg
+
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse
+
+try:
+    import qrcode
+    import qrcode.image.svg
+    HAS_QRCODE = True
+except ImportError:
+    HAS_QRCODE = False
 
 logger = logging.getLogger(__name__)
 
 REMOTE_PATH = "/remote"
 
+_static_dir = os.path.join(os.path.dirname(__file__), "static")
 
-def get_lan_ip() -> str:
+
+def get_lan_ip():
     """Return the LAN IP of this host.
 
     Opens a temporary UDP socket toward an external address so the OS selects
     the appropriate outgoing interface.  No data is actually transmitted.
     Falls back to '127.0.0.1' if the network is unavailable.
     """
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        try:
-            s.connect(("8.8.8.8", 80))
-            return s.getsockname()[0]
-        except OSError:
-            return "127.0.0.1"
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+    finally:
+        s.close()
 
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="LiveShow Teleprompter", redirect_slashes=False)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app = Flask(__name__, static_folder=_static_dir, static_url_path="/static")
+CORS(app)
 
 # In-memory stage state
 stage_state = {
@@ -53,64 +59,70 @@ stage_state = {
     "is_scrolling": False,
 }
 
-app.include_router(scripts.router)
-app.include_router(queues.router)
 
-stage_router = APIRouter(prefix="/api/stage", tags=["stage"])
+@app.before_request
+def open_db():
+    g.db = SessionLocal()
 
 
-@stage_router.get("/state")
+@app.teardown_request
+def close_db(exc):
+    db = getattr(g, "db", None)
+    if db is not None:
+        db.close()
+
+
+app.register_blueprint(scripts.blueprint)
+app.register_blueprint(queues.blueprint)
+
+
+@app.route("/api/stage/state", methods=["GET"])
 def get_stage_state():
-    return stage_state
+    return jsonify(stage_state)
 
 
-@stage_router.post("/state")
-def update_stage_state(update: dict):
-    stage_state.update({k: v for k, v in update.items() if k in stage_state})
-    return stage_state
+@app.route("/api/stage/state", methods=["POST"])
+def update_stage_state():
+    update = request.get_json() or {}
+    for k, v in update.items():
+        if k in stage_state:
+            stage_state[k] = v
+    return jsonify(stage_state)
 
 
-app.include_router(stage_router)
-
-static_dir = os.path.join(os.path.dirname(__file__), "static")
-
-
-@app.get("/api/qr")
-def get_qr_code(request: Request):
-    parsed = urllib.parse.urlparse(str(request.base_url))
+@app.route("/api/qr")
+def get_qr_code():
+    if not HAS_QRCODE:
+        abort(500)
+    parsed = urlparse(request.url_root)
     lan_ip = get_lan_ip()
     default_ports = {"http": 80, "https": 443}
-    port = (
-        f":{parsed.port}"
-        if parsed.port and parsed.port != default_ports.get(parsed.scheme)
-        else ""
-    )
-    remote_url = f"{parsed.scheme}://{lan_ip}{port}{REMOTE_PATH}"
+    port_num = parsed.port
+    scheme = parsed.scheme
+    port = ":{0}".format(port_num) if port_num and port_num != default_ports.get(scheme) else ""
+    remote_url = "{0}://{1}{2}{3}".format(scheme, lan_ip, port, REMOTE_PATH)
     try:
         factory = qrcode.image.svg.SvgPathFillImage
         img = qrcode.make(remote_url, image_factory=factory)
         buf = io.BytesIO()
         img.save(buf)
         buf.seek(0)
-        return Response(content=buf.getvalue(), media_type="image/svg+xml")
+        return Response(buf.getvalue(), mimetype="image/svg+xml")
     except Exception:
         logger.exception("Failed to generate QR code for %s", remote_url)
-        return Response(status_code=500)
+        abort(500)
 
 
-app.mount("/static", StaticFiles(directory=static_dir), name="static")
-
-
-@app.get("/")
+@app.route("/")
 def read_root():
-    return FileResponse(os.path.join(static_dir, "index.html"))
+    return send_file(os.path.join(_static_dir, "index.html"))
 
 
-@app.get("/teleprompter")
+@app.route("/teleprompter")
 def teleprompter():
-    return FileResponse(os.path.join(static_dir, "teleprompter.html"))
+    return send_file(os.path.join(_static_dir, "teleprompter.html"))
 
 
-@app.get("/remote")
+@app.route("/remote")
 def remote():
-    return FileResponse(os.path.join(static_dir, "remote.html"))
+    return send_file(os.path.join(_static_dir, "remote.html"))

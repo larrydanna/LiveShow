@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from app.database import Base
 
@@ -10,7 +10,7 @@ class Script(Base):
     title = Column(String(256), nullable=False)
     body = Column(Text, nullable=False)
     submitted_by = Column(String(48), nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class ScriptQueue(Base):
@@ -18,7 +18,7 @@ class ScriptQueue(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(256), unique=True, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class ScriptQueueItem(Base):
