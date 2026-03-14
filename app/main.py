@@ -72,6 +72,17 @@ def close_db(exc):
         db.close()
 
 
+@app.after_request
+def set_vary_cookie(response):
+    # Mitigate CVE: Flask < 2.2.5 omits Vary: Cookie, which can cause
+    # shared caches to serve stale session data to the wrong user.
+    # This replicates the fix shipped in Flask 2.2.5 / 2.3.2.
+    vary = response.headers.get("Vary", "")
+    if "Cookie" not in vary:
+        response.headers["Vary"] = (vary + ", Cookie").lstrip(", ") if vary else "Cookie"
+    return response
+
+
 app.register_blueprint(scripts.blueprint)
 app.register_blueprint(queues.blueprint)
 
