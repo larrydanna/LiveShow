@@ -1,10 +1,18 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from app.database import engine, Base
 from app.routers import scripts, queues
+import io
+import logging
 import os
+import qrcode
+import qrcode.image.svg
+
+logger = logging.getLogger(__name__)
+
+REMOTE_PATH = "/remote"
 
 Base.metadata.create_all(bind=engine)
 
@@ -47,6 +55,23 @@ def update_stage_state(update: dict):
 app.include_router(stage_router)
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")
+
+
+@app.get("/api/qr")
+def get_qr_code(request: Request):
+    remote_url = str(request.base_url).rstrip("/") + REMOTE_PATH
+    try:
+        factory = qrcode.image.svg.SvgPathFillImage
+        img = qrcode.make(remote_url, image_factory=factory)
+        buf = io.BytesIO()
+        img.save(buf)
+        buf.seek(0)
+        return Response(content=buf.getvalue(), media_type="image/svg+xml")
+    except Exception:
+        logger.exception("Failed to generate QR code for %s", remote_url)
+        return Response(status_code=500)
+
+
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
