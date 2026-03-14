@@ -7,12 +7,30 @@ from app.routers import scripts, queues
 import io
 import logging
 import os
+import socket
+import urllib.parse
 import qrcode
 import qrcode.image.svg
 
 logger = logging.getLogger(__name__)
 
 REMOTE_PATH = "/remote"
+
+
+def get_lan_ip() -> str:
+    """Return the LAN IP of this host.
+
+    Opens a temporary UDP socket toward an external address so the OS selects
+    the appropriate outgoing interface.  No data is actually transmitted.
+    Falls back to '127.0.0.1' if the network is unavailable.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        try:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+        except OSError:
+            return "127.0.0.1"
+
 
 Base.metadata.create_all(bind=engine)
 
@@ -59,7 +77,15 @@ static_dir = os.path.join(os.path.dirname(__file__), "static")
 
 @app.get("/api/qr")
 def get_qr_code(request: Request):
-    remote_url = str(request.base_url).rstrip("/") + REMOTE_PATH
+    parsed = urllib.parse.urlparse(str(request.base_url))
+    lan_ip = get_lan_ip()
+    default_ports = {"http": 80, "https": 443}
+    port = (
+        f":{parsed.port}"
+        if parsed.port and parsed.port != default_ports.get(parsed.scheme)
+        else ""
+    )
+    remote_url = f"{parsed.scheme}://{lan_ip}{port}{REMOTE_PATH}"
     try:
         factory = qrcode.image.svg.SvgPathFillImage
         img = qrcode.make(remote_url, image_factory=factory)
