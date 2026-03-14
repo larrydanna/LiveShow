@@ -1,0 +1,112 @@
+const SCROLL_SYNC_THRESHOLD = 5;
+const SCROLL_POST_THROTTLE_MS = 500;
+const STATE_POLL_INTERVAL_MS = 2000;
+const scriptId = params.get("script_id");
+
+const titleEl = document.getElementById("script-title");
+const bodyEl = document.getElementById("script-body");
+const startStopBtn = document.getElementById("start-stop-btn");
+const speedSlider = document.getElementById("speed-slider");
+const speedVal = document.getElementById("speed-val");
+
+let isScrolling = false;
+let scrollSpeed = 3;
+let rafId = null;
+let lastTime = null;
+
+async function loadScript() {
+  if (!scriptId) { titleEl.textContent = "No script selected"; return; }
+  const script = await API.get(`scripts/${scriptId}`);
+  titleEl.textContent = script.title;
+  bodyEl.textContent = script.body;
+}
+
+function getPixelsPerSecond() {
+  // speed 1-10 maps to 20-200 px/s
+  return scrollSpeed * 20;
+}
+
+function scrollStep(ts) {
+  if (!isScrolling) return;
+  if (lastTime === null) lastTime = ts;
+  const delta = (ts - lastTime) / 1000;
+  lastTime = ts;
+  bodyEl.parentElement.scrollTop += getPixelsPerSecond() * delta;
+  postScrollState();
+  rafId = requestAnimationFrame(scrollStep);
+}
+
+function startScroll() {
+  isScrolling = true;
+  lastTime = null;
+  startStopBtn.textContent = "Stop";
+  rafId = requestAnimationFrame(scrollStep);
+  API.post("stage/state", { is_scrolling: true });
+}
+
+function stopScroll() {
+  isScrolling = false;
+  lastTime = null;
+  startStopBtn.textContent = "Start";
+  if (rafId) cancelAnimationFrame(rafId);
+  API.post("stage/state", { is_scrolling: false });
+}
+
+let postThrottle = 0;
+function postScrollState() {
+  const now = Date.now();
+  if (now - postThrottle > SCROLL_POST_THROTTLE_MS) {
+    postThrottle = now;
+    API.post("stage/state", { scroll_position: bodyEl.parentElement.scrollTop });
+  }
+}
+
+startStopBtn.addEventListener("click", () => {
+  if (isScrolling) stopScroll(); else startScroll();
+});
+
+speedSlider.addEventListener("input", () => {
+  scrollSpeed = parseFloat(speedSlider.value);
+  speedVal.textContent = scrollSpeed;
+  API.post("stage/state", { auto_scroll_speed: scrollSpeed });
+});
+
+document.addEventListener("keydown", (e) => {
+  const scroller = bodyEl.parentElement;
+  if (e.key === " ") { e.preventDefault(); if (isScrolling) stopScroll(); else startScroll(); }
+  else if (e.key === "ArrowDown") { e.preventDefault(); scroller.scrollTop += 50; }
+  else if (e.key === "ArrowUp") { e.preventDefault(); scroller.scrollTop -= 50; }
+  else if (e.key === "PageDown") { e.preventDefault(); scroller.scrollTop += scroller.clientHeight; }
+  else if (e.key === "PageUp") { e.preventDefault(); scroller.scrollTop -= scroller.clientHeight; }
+  else if (e.key === "Escape") { stopScroll(); window.location.href = "/"; }
+});
+
+document.getElementById("page-up-btn").addEventListener("click", () => {
+  bodyEl.parentElement.scrollTop -= bodyEl.parentElement.clientHeight;
+});
+document.getElementById("page-down-btn").addEventListener("click", () => {
+  bodyEl.parentElement.scrollTop += bodyEl.parentElement.clientHeight;
+});
+document.getElementById("back-btn").addEventListener("click", () => {
+  stopScroll();
+  window.location.href = "/";
+});
+
+// Poll stage state every 2 seconds and sync from remote
+setInterval(async () => {
+  const state = await API.get("stage/state");
+  const scroller = bodyEl.parentElement;
+
+  if (!isScrolling && Math.abs(scroller.scrollTop - state.scroll_position) > SCROLL_SYNC_THRESHOLD) {
+    scroller.scrollTop = state.scroll_position;
+  }
+  if (state.auto_scroll_speed !== scrollSpeed) {
+    scrollSpeed = state.auto_scroll_speed;
+    speedSlider.value = scrollSpeed;
+    speedVal.textContent = scrollSpeed;
+  }
+  if (state.is_scrolling && !isScrolling) startScroll();
+  else if (!state.is_scrolling && isScrolling) stopScroll();
+}, STATE_POLL_INTERVAL_MS);
+
+loadScript();
