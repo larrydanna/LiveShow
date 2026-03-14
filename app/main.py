@@ -1,13 +1,12 @@
 from __future__ import absolute_import
 
-from flask import Flask, request, jsonify, send_file, g, Response, abort
-from flask_cors import CORS
-from app.database import engine, Base, SessionLocal
-from app.routers import scripts, queues
 import io
+import json
 import logging
 import os
 import socket
+
+from bottle import Bottle, request, response, abort, static_file
 
 try:
     from urllib.parse import urlparse
@@ -20,6 +19,9 @@ try:
     HAS_QRCODE = True
 except ImportError:
     HAS_QRCODE = False
+
+from app.database import engine, Base, SessionLocal
+from app.routers import scripts, queues
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +47,49 @@ def get_lan_ip():
         s.close()
 
 
+class SecurityHeadersMiddleware(object):
+    """WSGI middleware that adds CORS and Vary: Cookie to every response.
+
+    Applying these headers at the WSGI layer guarantees they are present
+    regardless of whether the inner handler returns a plain string, a
+    Bottle HTTPResponse object, or a static file response.
+
+    The Vary: Cookie header mirrors the fix shipped in Flask 2.2.5 / 2.3.2
+    (CVE: missing Vary: Cookie on session-cookie responses).  Although this
+    app does not use server-side sessions, the header is included proactively
+    so that any intermediate cache never serves a stale cookie-gated response
+    to the wrong client.
+    """
+
+    def __init__(self, wsgi_app):
+        self.app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        def _start_response(status, headers, exc_info=None):
+            names = [h[0].lower() for h in headers]
+            if "access-control-allow-origin" not in names:
+                headers.append(("Access-Control-Allow-Origin", "*"))
+            if "access-control-allow-methods" not in names:
+                headers.append(("Access-Control-Allow-Methods",
+                                 "GET, POST, PUT, DELETE, OPTIONS"))
+            if "access-control-allow-headers" not in names:
+                headers.append(("Access-Control-Allow-Headers",
+                                 "Content-Type, Authorization"))
+            # Vary: Cookie — merge with any existing Vary value
+            vary_vals = [v for k, v in headers if k.lower() == "vary"]
+            current_vary = ", ".join(vary_vals)
+            if "cookie" not in current_vary.lower():
+                new_vary = (current_vary + ", Cookie").lstrip(", ") if current_vary else "Cookie"
+                headers = [(k, v) for k, v in headers if k.lower() != "vary"]
+                headers.append(("Vary", new_vary))
+            return start_response(status, headers, exc_info)
+
+        return self.app(environ, _start_response)
+
+
 Base.metadata.create_all(bind=engine)
 
-app = Flask(__name__, static_folder=_static_dir, static_url_path="/static")
-CORS(app)
+_bottle = Bottle()
 
 # In-memory stage state
 stage_state = {
@@ -60,51 +101,38 @@ stage_state = {
 }
 
 
-@app.before_request
-def open_db():
-    g.db = SessionLocal()
+# OPTIONS pre-flight handler for all routes
+@_bottle.route("/<path:path>", method="OPTIONS")
+@_bottle.route("/", method="OPTIONS")
+def options_handler(path=""):
+    response.content_type = "application/json"
+    return "{}"
 
 
-@app.teardown_request
-def close_db(exc):
-    db = getattr(g, "db", None)
-    if db is not None:
-        db.close()
+scripts.setup_routes(_bottle)
+queues.setup_routes(_bottle)
 
 
-@app.after_request
-def set_vary_cookie(response):
-    # Mitigate CVE: Flask < 2.2.5 omits Vary: Cookie, which can cause
-    # shared caches to serve stale session data to the wrong user.
-    # This replicates the fix shipped in Flask 2.2.5 / 2.3.2.
-    vary = response.headers.get("Vary", "")
-    if "Cookie" not in vary:
-        response.headers["Vary"] = (vary + ", Cookie").lstrip(", ") if vary else "Cookie"
-    return response
-
-
-app.register_blueprint(scripts.blueprint)
-app.register_blueprint(queues.blueprint)
-
-
-@app.route("/api/stage/state", methods=["GET"])
+@_bottle.route("/api/stage/state", method="GET")
 def get_stage_state():
-    return jsonify(stage_state)
+    response.content_type = "application/json"
+    return json.dumps(stage_state)
 
 
-@app.route("/api/stage/state", methods=["POST"])
+@_bottle.route("/api/stage/state", method="POST")
 def update_stage_state():
-    update = request.get_json() or {}
+    update = request.json or {}
     for k, v in update.items():
         if k in stage_state:
             stage_state[k] = v
-    return jsonify(stage_state)
+    response.content_type = "application/json"
+    return json.dumps(stage_state)
 
 
-@app.route("/api/qr")
+@_bottle.route("/api/qr", method="GET")
 def get_qr_code():
     if not HAS_QRCODE:
-        abort(500)
+        abort(500, "qrcode library not available")
     parsed = urlparse(request.url_root)
     lan_ip = get_lan_ip()
     default_ports = {"http": 80, "https": 443}
@@ -118,22 +146,32 @@ def get_qr_code():
         buf = io.BytesIO()
         img.save(buf)
         buf.seek(0)
-        return Response(buf.getvalue(), mimetype="image/svg+xml")
+        response.content_type = "image/svg+xml"
+        return buf.getvalue()
     except Exception:
         logger.exception("Failed to generate QR code for %s", remote_url)
-        abort(500)
+        abort(500, "Failed to generate QR code")
 
 
-@app.route("/")
+@_bottle.route("/static/<filepath:path>")
+def serve_static(filepath):
+    return static_file(filepath, root=_static_dir)
+
+
+@_bottle.route("/")
 def read_root():
-    return send_file(os.path.join(_static_dir, "index.html"))
+    return static_file("index.html", root=_static_dir)
 
 
-@app.route("/teleprompter")
+@_bottle.route("/teleprompter")
 def teleprompter():
-    return send_file(os.path.join(_static_dir, "teleprompter.html"))
+    return static_file("teleprompter.html", root=_static_dir)
 
 
-@app.route("/remote")
+@_bottle.route("/remote")
 def remote():
-    return send_file(os.path.join(_static_dir, "remote.html"))
+    return static_file("remote.html", root=_static_dir)
+
+
+# Exported WSGI app — wrapped with security middleware
+app = SecurityHeadersMiddleware(_bottle)

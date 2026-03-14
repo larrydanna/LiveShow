@@ -8,7 +8,7 @@ LiveShow is a multi-tier teleprompter application designed for live stage enviro
 ## Architecture
 
 - **Database**: SQLite (embedded, no server required)
-- **API**: Python Flask REST service
+- **API**: Python Bottle REST service
 - **UI**: Browser-based, served by the API server
   - On-Stage 10-foot display (queue/script selection + teleprompter)
   - Remote Management (mobile-friendly, for backstage control)
@@ -21,7 +21,7 @@ LiveShow is a multi-tier teleprompter application designed for live stage enviro
 > **Mac OS 10.11 (El Capitan) note**: This branch is specifically adapted to run
 > on Python 2.7, which is the version shipped with Mac OS 10.11.  The modern
 > `main` branch requires Python 3.10+ and FastAPI; this branch replaces that
-> stack with Flask 1.1 and SQLAlchemy 1.3 so the application runs unchanged on
+> stack with Bottle 0.12 and SQLAlchemy 1.3 so the application runs unchanged on
 > vintage Apple hardware.
 
 ## Installation
@@ -41,6 +41,12 @@ pip install -r requirements.txt
 
 ```bash
 python run.py
+```
+
+To enable the auto-reloader during development:
+
+```bash
+BOTTLE_DEBUG=1 python run.py
 ```
 
 The application starts on `http://0.0.0.0:8000`. Open a browser and navigate to:
