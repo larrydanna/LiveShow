@@ -1,6 +1,7 @@
 const SCROLL_SYNC_THRESHOLD = 5;
 const SCROLL_POST_THROTTLE_MS = 500;
 const STATE_POLL_INTERVAL_MS = 2000;
+const params = new URLSearchParams(window.location.search);
 const scriptId = params.get("script_id");
 
 const titleEl = document.getElementById("script-title");
@@ -97,7 +98,8 @@ setInterval(async () => {
   const state = await API.get("stage/state");
   const scroller = bodyEl.parentElement;
 
-  if (!isScrolling && Math.abs(scroller.scrollTop - state.scroll_position) > SCROLL_SYNC_THRESHOLD) {
+  if (!isScrolling && typeof state.scroll_position === 'number' &&
+      Math.abs(scroller.scrollTop - state.scroll_position) > SCROLL_SYNC_THRESHOLD) {
     scroller.scrollTop = state.scroll_position;
   }
   if (state.auto_scroll_speed !== scrollSpeed) {

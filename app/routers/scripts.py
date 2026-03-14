@@ -6,7 +6,7 @@ from app import models, schemas
 router = APIRouter(prefix="/api/scripts", tags=["scripts"])
 
 
-@router.get("/", response_model=list[schemas.ScriptListItem])
+@router.get("", response_model=list[schemas.ScriptListItem])
 def list_scripts(db: Session = Depends(get_db)):
     return db.query(models.Script).all()
 
@@ -19,7 +19,7 @@ def get_script(script_id: int, db: Session = Depends(get_db)):
     return script
 
 
-@router.post("/", response_model=schemas.ScriptDetail, status_code=201)
+@router.post("", response_model=schemas.ScriptDetail, status_code=201)
 def create_script(payload: schemas.ScriptCreate, db: Session = Depends(get_db)):
     script = models.Script(**payload.model_dump())
     db.add(script)

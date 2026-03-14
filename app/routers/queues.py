@@ -33,7 +33,7 @@ def _build_queue_detail(queue: models.ScriptQueue, db: Session) -> schemas.Queue
     )
 
 
-@router.get("/", response_model=list[schemas.QueueListItem])
+@router.get("", response_model=list[schemas.QueueListItem])
 def list_queues(db: Session = Depends(get_db)):
     return db.query(models.ScriptQueue).all()
 
@@ -46,7 +46,7 @@ def get_queue(queue_id: int, db: Session = Depends(get_db)):
     return _build_queue_detail(queue, db)
 
 
-@router.post("/", response_model=schemas.QueueListItem, status_code=201)
+@router.post("", response_model=schemas.QueueListItem, status_code=201)
 def create_queue(payload: schemas.QueueCreate, db: Session = Depends(get_db)):
     queue = models.ScriptQueue(**payload.model_dump())
     db.add(queue)
@@ -91,7 +91,7 @@ def add_script_to_queue(
     item = models.ScriptQueueItem(
         queue_id=queue_id,
         script_id=payload.script_id,
-        position=payload.position or 0,
+        position=payload.position if payload.position is not None else 0,
     )
     db.add(item)
     db.commit()

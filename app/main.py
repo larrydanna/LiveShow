@@ -8,7 +8,7 @@ import os
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="LiveShow Teleprompter")
+app = FastAPI(title="LiveShow Teleprompter", redirect_slashes=False)
 
 app.add_middleware(
     CORSMiddleware,
