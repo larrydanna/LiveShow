@@ -27,6 +27,28 @@
     header h1 { font-size: 2.5rem; letter-spacing: 0.05em; color: #00cc66; }
     header a { color: #888; font-size: 1rem; text-decoration: none; }
     header a:hover { color: #ccc; }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+    #qr-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    #qr-code {
+      display: block;
+      border: 3px solid #333;
+      border-radius: 4px;
+    }
+    .qr-label {
+      font-size: 0.7rem;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
     .panels {
       display: flex;
       flex: 1;
@@ -90,7 +112,13 @@
 <body>
   <header>
     <h1>LiveShow</h1>
-    <a href="/remote">⚙ Remote</a>
+    <div class="header-right">
+      <div id="qr-container">
+        <img id="qr-code" src="/api/qr" alt="QR code for Remote UI" width="96" height="96">
+        <div class="qr-label">Scan for Remote</div>
+      </div>
+      <a href="/remote">⚙ Remote</a>
+    </div>
   </header>
   <div class="panels">
     <div class="panel" id="queue-panel-wrap">
