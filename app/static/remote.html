@@ -96,7 +96,7 @@
 <body>
   <div class="container py-4">
     <div class="d-flex align-items-center justify-content-between mb-4">
-      <h1 class="h3 mb-0">LiveShow Remote</h1>
+      <h1 class="h3 mb-0"><span id="instance-name">LiveShow</span> Remote</h1>
       <a href="/" class="btn btn-sm btn-outline-secondary">← Stage</a>
     </div>
 
@@ -110,6 +110,9 @@
       </li>
       <li class="nav-item">
         <a class="nav-link" data-tab="tab-stage">Stage Control</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-tab="tab-settings">Settings</a>
       </li>
     </ul>
 
@@ -169,6 +172,21 @@
           <button id="stage-page-down" class="btn btn-outline-secondary">⬇ Page Down</button>
         </div>
       </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div id="tab-settings" class="tab-pane">
+      <h5 class="mb-3">Instance Settings</h5>
+      <form id="settings-form" class="mb-4">
+        <div class="mb-3">
+          <label for="instance-name-input" class="form-label fw-bold">Instance Name</label>
+          <input id="instance-name-input" name="instance_name" class="form-control" maxlength="64"
+                 placeholder="LiveShow" style="max-width: 400px;">
+          <small class="text-muted">Up to 64 characters. Shown at the top of every screen.</small>
+        </div>
+        <div id="settings-alert" class="alert" style="display:none; max-width:400px;"></div>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </form>
     </div>
   </div>
 

@@ -8,6 +8,13 @@ const queuePanel = document.getElementById("queue-panel");
 const scriptPanel = document.getElementById("script-panel");
 const launchBtn = document.getElementById("launch-btn");
 
+async function applyInstanceName() {
+  const cfg = await API.get("config");
+  const name = cfg.instance_name || "LiveShow";
+  document.getElementById("instance-name").textContent = name;
+  document.title = `${name} – On Stage`;
+}
+
 async function loadQueues() {
   queues = await API.get("queues");
   renderQueues();
@@ -94,3 +101,4 @@ document.addEventListener("keydown", (e) => {
 });
 
 loadQueues();
+applyInstanceName();

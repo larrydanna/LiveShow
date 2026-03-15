@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ScriptBase(BaseModel):
@@ -88,3 +88,11 @@ class StageState(BaseModel):
     scroll_position: float = 0.0
     auto_scroll_speed: float = 3.0
     is_scrolling: bool = False
+
+
+class InstanceConfigRead(BaseModel):
+    instance_name: str
+
+
+class InstanceConfigUpdate(BaseModel):
+    instance_name: str = Field(min_length=1, max_length=64)
