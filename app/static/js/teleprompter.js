@@ -1,6 +1,7 @@
 const SCROLL_SYNC_THRESHOLD = 5;
 const SCROLL_POST_THROTTLE_MS = 500;
 const STATE_POLL_INTERVAL_MS = 2000;
+const INITIAL_PAUSE_MS = 8000;
 const params = new URLSearchParams(window.location.search);
 const scriptId = params.get("script_id");
 
@@ -14,12 +15,18 @@ let isScrolling = false;
 let scrollSpeed = 3;
 let rafId = null;
 let lastTime = null;
+let startupLockUntil = 0;
 
 async function loadScript() {
   if (!scriptId) { titleEl.textContent = "No script selected"; return; }
   const script = await API.get(`scripts/${scriptId}`);
   titleEl.textContent = script.title;
   bodyEl.textContent = script.body;
+  bodyEl.parentElement.scrollTop = 0;
+  startupLockUntil = Date.now() + INITIAL_PAUSE_MS;
+  const titleBar = document.getElementById("title-bar");
+  titleBar.classList.add("loading");
+  setTimeout(() => titleBar.classList.remove("loading"), INITIAL_PAUSE_MS);
 }
 
 function getPixelsPerSecond() {
@@ -97,18 +104,21 @@ document.getElementById("back-btn").addEventListener("click", () => {
 setInterval(async () => {
   const state = await API.get("stage/state");
   const scroller = bodyEl.parentElement;
+  const inInitialPause = Date.now() < startupLockUntil;
 
-  if (!isScrolling && typeof state.scroll_position === 'number' &&
-      Math.abs(scroller.scrollTop - state.scroll_position) > SCROLL_SYNC_THRESHOLD) {
-    scroller.scrollTop = state.scroll_position;
+  if (!inInitialPause) {
+    if (!isScrolling && typeof state.scroll_position === 'number' &&
+        Math.abs(scroller.scrollTop - state.scroll_position) > SCROLL_SYNC_THRESHOLD) {
+      scroller.scrollTop = state.scroll_position;
+    }
+    if (state.is_scrolling && !isScrolling) startScroll();
+    else if (!state.is_scrolling && isScrolling) stopScroll();
   }
   if (state.auto_scroll_speed !== scrollSpeed) {
     scrollSpeed = state.auto_scroll_speed;
     speedSlider.value = scrollSpeed;
     speedVal.textContent = scrollSpeed;
   }
-  if (state.is_scrolling && !isScrolling) startScroll();
-  else if (!state.is_scrolling && isScrolling) stopScroll();
 }, STATE_POLL_INTERVAL_MS);
 
 loadScript();
