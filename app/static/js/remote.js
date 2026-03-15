@@ -217,6 +217,11 @@ function escHtml(str) {
   return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+// ---- Export ----
+document.getElementById("export-btn").addEventListener("click", () => {
+  window.location.href = "/api/export";
+});
+
 // Init
 loadScripts();
 loadQueues();
