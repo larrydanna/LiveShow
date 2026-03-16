@@ -108,6 +108,9 @@ setInterval(async () => {
   if (remoteScriptId && remoteScriptId !== currentScriptId) {
     currentScriptId = remoteScriptId;
     stopScroll();
+    // Mark the stale state as not-scrolling so the sync check below doesn't
+    // restart scrolling using the value fetched before the script change.
+    state.is_scrolling = false;
     scroller.scrollTop = 0;
     await loadScript(currentScriptId);
     await API.post("stage/state", { scroll_position: 0 });
