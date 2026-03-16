@@ -117,3 +117,11 @@ setInterval(async () => {
 }, STATE_POLL_INTERVAL_MS);
 
 loadScript();
+// Reset the remote launch flag so the stage view doesn't re-trigger navigation
+(async () => {
+  try {
+    await API.post("stage/state", { launch_teleprompter: false });
+  } catch (_) {
+    // Best-effort reset; non-critical if it fails
+  }
+})();
