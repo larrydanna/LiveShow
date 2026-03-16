@@ -2,7 +2,6 @@ const SCROLL_SYNC_THRESHOLD = 5;
 const SCROLL_POST_THROTTLE_MS = 500;
 const STATE_POLL_INTERVAL_MS = 2000;
 const params = new URLSearchParams(window.location.search);
-const scriptId = params.get("script_id");
 
 const titleEl = document.getElementById("script-title");
 const bodyEl = document.getElementById("script-body");
@@ -14,11 +13,12 @@ let isScrolling = false;
 let scrollSpeed = 3;
 let rafId = null;
 let lastTime = null;
+let currentScriptId = params.get("script_id") ? parseInt(params.get("script_id"), 10) : null;
 
-async function loadScript() {
-  if (!scriptId) { titleEl.textContent = "No script selected"; return; }
+async function loadScript(id) {
+  if (!id) { titleEl.textContent = "No script selected"; bodyEl.textContent = ""; return; }
   const [script, cfg] = await Promise.all([
-    API.get(`scripts/${scriptId}`),
+    API.get(`scripts/${id}`),
     API.get("config"),
   ]);
   titleEl.textContent = script.title;
@@ -103,6 +103,16 @@ setInterval(async () => {
   const state = await API.get("stage/state");
   const scroller = bodyEl.parentElement;
 
+  // Reload script content if the remote has selected a different script
+  const remoteScriptId = state.active_script_id ? parseInt(state.active_script_id, 10) : null;
+  if (remoteScriptId && remoteScriptId !== currentScriptId) {
+    currentScriptId = remoteScriptId;
+    stopScroll();
+    scroller.scrollTop = 0;
+    await loadScript(currentScriptId);
+    await API.post("stage/state", { scroll_position: 0 });
+  }
+
   if (!isScrolling && typeof state.scroll_position === 'number' &&
       Math.abs(scroller.scrollTop - state.scroll_position) > SCROLL_SYNC_THRESHOLD) {
     scroller.scrollTop = state.scroll_position;
@@ -116,9 +126,9 @@ setInterval(async () => {
   else if (!state.is_scrolling && isScrolling) stopScroll();
 }, STATE_POLL_INTERVAL_MS);
 
-loadScript();
-// Reset the remote launch flag so the stage view doesn't re-trigger navigation
+// Load initial script, then reset the remote launch flag
 (async () => {
+  await loadScript(currentScriptId);
   try {
     await API.post("stage/state", { launch_teleprompter: false });
   } catch (_) {
