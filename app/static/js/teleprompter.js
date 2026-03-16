@@ -17,9 +17,14 @@ let lastTime = null;
 
 async function loadScript() {
   if (!scriptId) { titleEl.textContent = "No script selected"; return; }
-  const script = await API.get(`scripts/${scriptId}`);
+  const [script, cfg] = await Promise.all([
+    API.get(`scripts/${scriptId}`),
+    API.get("config"),
+  ]);
   titleEl.textContent = script.title;
   bodyEl.textContent = script.body;
+  const instanceName = cfg.instance_name || "LiveShow";
+  document.title = `${instanceName} – Teleprompter`;
 }
 
 function getPixelsPerSecond() {
