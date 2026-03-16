@@ -102,3 +102,17 @@ document.addEventListener("keydown", (e) => {
 
 loadQueues();
 applyInstanceName();
+
+// Poll stage state for remote-triggered teleprompter launch
+const STAGE_POLL_INTERVAL_MS = 2000;
+let launchInProgress = false;
+const stagePollId = setInterval(async () => {
+  if (launchInProgress) return;
+  const state = await API.get("stage/state");
+  if (state.launch_teleprompter && state.active_script_id) {
+    launchInProgress = true;
+    clearInterval(stagePollId);
+    await API.post("stage/state", { launch_teleprompter: false });
+    window.location.href = `/teleprompter?script_id=${state.active_script_id}`;
+  }
+}, STAGE_POLL_INTERVAL_MS);
