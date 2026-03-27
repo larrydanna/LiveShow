@@ -4,7 +4,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 from app.database import engine, Base, get_db
-from app.routers import scripts, queues
+from app.routers import scripts, queues, config
+from app.routers import import_data as import_data_router
 from app import models
 from datetime import datetime
 import io
@@ -157,6 +158,7 @@ def export_data(db: Session = Depends(get_db)):
 
 
 app.include_router(export_router)
+app.include_router(import_data_router.router)
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 
