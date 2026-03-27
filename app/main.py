@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 from app.database import engine, Base, get_db
-from app.routers import scripts, queues
+from app.routers import scripts, queues, config
 from app import models
 from datetime import datetime
 import io
