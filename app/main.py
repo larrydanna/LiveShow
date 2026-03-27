@@ -1,10 +1,14 @@
-from fastapi import FastAPI, APIRouter, Request
+from fastapi import Depends, FastAPI, APIRouter, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
-from app.database import engine, Base
-from app.routers import scripts, queues, config
+from sqlalchemy.orm import Session
+from app.database import engine, Base, get_db
+from app.routers import scripts, queues
+from app import models
+from datetime import datetime
 import io
+import json
 import logging
 import os
 import socket
@@ -73,6 +77,86 @@ def update_stage_state(update: dict):
 
 
 app.include_router(stage_router)
+
+export_router = APIRouter(prefix="/api/export", tags=["export"])
+
+
+@export_router.get("")
+def export_data(db: Session = Depends(get_db)):
+    instance_name = socket.gethostname()
+    now = datetime.now()
+    filename = now.strftime(f"LiveShow_{instance_name}_%y%m%d-%H:%M.json")
+
+    all_scripts = db.query(models.Script).order_by(models.Script.id.asc()).all()
+    all_queues = db.query(models.ScriptQueue).order_by(models.ScriptQueue.id.asc()).all()
+
+    scripts_by_id = {s.id: s for s in all_scripts}
+
+    scripts_data = [
+        {
+            "id": s.id,
+            "title": s.title,
+            "body": s.body,
+            "submitted_by": s.submitted_by,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+        }
+        for s in all_scripts
+    ]
+
+    all_queue_items = (
+        db.query(models.ScriptQueueItem)
+        .order_by(models.ScriptQueueItem.queue_id.asc(), models.ScriptQueueItem.position.asc())
+        .all()
+    )
+    items_by_queue: dict[int, list] = {}
+    for item in all_queue_items:
+        items_by_queue.setdefault(item.queue_id, []).append(item)
+
+    queues_data = []
+    for q in all_queues:
+        queue_scripts = []
+        for item in items_by_queue.get(q.id, []):
+            script = scripts_by_id.get(item.script_id)
+            if script:
+                queue_scripts.append(
+                    {
+                        "id": item.id,
+                        "script_id": item.script_id,
+                        "position": item.position,
+                        "script": {
+                            "id": script.id,
+                            "title": script.title,
+                            "submitted_by": script.submitted_by,
+                            "created_at": script.created_at.isoformat() if script.created_at else None,
+                        },
+                    }
+                )
+        queues_data.append(
+            {
+                "id": q.id,
+                "name": q.name,
+                "created_at": q.created_at.isoformat() if q.created_at else None,
+                "scripts": queue_scripts,
+            }
+        )
+
+    payload = {
+        "exported_at": now.isoformat(),
+        "instance_name": instance_name,
+        "scripts": scripts_data,
+        "queues": queues_data,
+        "stage_state": stage_state,
+    }
+
+    content = json.dumps(payload, indent=2)
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+app.include_router(export_router)
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 

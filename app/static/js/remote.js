@@ -223,35 +223,9 @@ function escHtml(str) {
   return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-// ---- Instance name ----
-async function applyInstanceName() {
-  const cfg = await API.get("config");
-  const name = cfg.instance_name || "LiveShow";
-  document.getElementById("instance-name").textContent = name;
-  document.title = `${name} – Remote`;
-  const input = document.getElementById("instance-name-input");
-  if (input) input.value = name;
-}
-
-// ---- Settings Tab ----
-document.getElementById("settings-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const name = document.getElementById("instance-name-input").value.trim();
-  const alertEl = document.getElementById("settings-alert");
-  try {
-    const cfg = await API.put("config", { instance_name: name });
-    const saved = cfg.instance_name || "LiveShow";
-    document.getElementById("instance-name").textContent = saved;
-    document.title = `${saved} – Remote`;
-    alertEl.className = "alert alert-success";
-    alertEl.textContent = "Instance name saved.";
-    alertEl.style.display = "";
-    setTimeout(() => { alertEl.style.display = "none"; }, 3000);
-  } catch {
-    alertEl.className = "alert alert-danger";
-    alertEl.textContent = "Failed to save settings.";
-    alertEl.style.display = "";
-  }
+// ---- Export ----
+document.getElementById("export-btn").addEventListener("click", () => {
+  window.location.href = "/api/export";
 });
 
 // Init
