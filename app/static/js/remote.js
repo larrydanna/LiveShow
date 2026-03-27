@@ -180,12 +180,14 @@ async function loadStageState() {
   const speedSlider = document.getElementById("stage-speed-slider");
   const speedVal = document.getElementById("stage-speed-val");
   const scrollingBtn = document.getElementById("stage-scroll-toggle");
+  const launchBtn = document.getElementById("stage-launch-btn");
   if (state.active_queue_id) qSel.value = state.active_queue_id;
   if (state.active_script_id) sSel.value = state.active_script_id;
   speedSlider.value = state.auto_scroll_speed;
   speedVal.textContent = state.auto_scroll_speed;
   scrollingBtn.textContent = state.is_scrolling ? "Stop Scrolling" : "Start Scrolling";
   scrollingBtn.className = "btn " + (state.is_scrolling ? "btn-warning" : "btn-success");
+  launchBtn.disabled = !state.active_script_id;
 }
 
 document.getElementById("stage-queue-select").addEventListener("change", async (e) => {
@@ -193,6 +195,7 @@ document.getElementById("stage-queue-select").addEventListener("change", async (
 });
 document.getElementById("stage-script-select").addEventListener("change", async (e) => {
   await API.post("stage/state", { active_script_id: e.target.value ? parseInt(e.target.value) : null });
+  document.getElementById("stage-launch-btn").disabled = !e.target.value;
 });
 document.getElementById("stage-speed-slider").addEventListener("input", async (e) => {
   document.getElementById("stage-speed-val").textContent = e.target.value;
@@ -212,6 +215,9 @@ document.getElementById("stage-page-down").addEventListener("click", async () =>
   const state = await API.get("stage/state");
   await API.post("stage/state", { scroll_position: state.scroll_position + PAGE_SCROLL_AMOUNT });
 });
+document.getElementById("stage-launch-btn").addEventListener("click", async () => {
+  await API.post("stage/state", { launch_teleprompter: true });
+});
 
 function escHtml(str) {
   return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -227,3 +233,4 @@ loadScripts();
 loadQueues();
 loadStageState();
 setInterval(loadStageState, STATE_POLL_INTERVAL_MS);
+applyInstanceName();

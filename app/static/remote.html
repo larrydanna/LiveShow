@@ -106,18 +106,21 @@
     <!-- Tabs -->
     <ul class="nav nav-tabs mb-3">
       <li class="nav-item">
-        <a class="nav-link active" data-tab="tab-scripts">Scripts</a>
+        <a class="nav-link active" data-tab="tab-stage">Stage Control</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-tab="tab-scripts">Scripts</a>
       </li>
       <li class="nav-item">
         <a class="nav-link" data-tab="tab-queues">Queues</a>
       </li>
       <li class="nav-item">
-        <a class="nav-link" data-tab="tab-stage">Stage Control</a>
+        <a class="nav-link" data-tab="tab-settings">Settings</a>
       </li>
     </ul>
 
     <!-- Scripts Tab -->
-    <div id="tab-scripts" class="tab-pane show active">
+    <div id="tab-scripts" class="tab-pane">
       <h5 class="mb-3">Add Script</h5>
       <form id="add-script-form" class="mb-4">
         <div class="mb-2">
@@ -147,7 +150,7 @@
     </div>
 
     <!-- Stage Control Tab -->
-    <div id="tab-stage" class="tab-pane">
+    <div id="tab-stage" class="tab-pane show active">
       <h5 class="mb-3">Stage Control</h5>
       <div class="row g-3">
         <div class="col-md-6">
@@ -171,7 +174,25 @@
           <button id="stage-page-up" class="btn btn-outline-secondary">⬆ Page Up</button>
           <button id="stage-page-down" class="btn btn-outline-secondary">⬇ Page Down</button>
         </div>
+        <div class="col-12">
+          <button id="stage-launch-btn" class="btn btn-primary" disabled>▶ Launch Teleprompter</button>
+        </div>
       </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div id="tab-settings" class="tab-pane">
+      <h5 class="mb-3">Instance Settings</h5>
+      <form id="settings-form" class="mb-4">
+        <div class="mb-3">
+          <label for="instance-name-input" class="form-label fw-bold">Instance Name</label>
+          <input id="instance-name-input" name="instance_name" class="form-control" maxlength="64"
+                 placeholder="LiveShow" style="max-width: 400px;">
+          <small class="text-muted">Up to 64 characters. Shown at the top of every screen.</small>
+        </div>
+        <div id="settings-alert" class="alert" style="display:none; max-width:400px;"></div>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </form>
     </div>
   </div>
 
