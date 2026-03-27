@@ -15,6 +15,10 @@
       flex-direction: column;
       overflow: hidden;
     }
+    @keyframes titleBarFade {
+      from { background: #162b1e; }
+      to   { background: #0a0a0a; }
+    }
     #title-bar {
       background: #0a0a0a;
       border-bottom: 2px solid #1a1a1a;
@@ -23,6 +27,9 @@
       align-items: center;
       justify-content: space-between;
       flex-shrink: 0;
+    }
+    #title-bar.loading {
+      animation: titleBarFade 8s ease-out forwards;
     }
     #script-title {
       font-size: 1.8rem;

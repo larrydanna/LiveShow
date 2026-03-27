@@ -1,6 +1,7 @@
 const SCROLL_SYNC_THRESHOLD = 5;
 const SCROLL_POST_THROTTLE_MS = 500;
 const STATE_POLL_INTERVAL_MS = 2000;
+const INITIAL_PAUSE_MS = 8000;
 const params = new URLSearchParams(window.location.search);
 
 const titleEl = document.getElementById("script-title");
@@ -102,6 +103,7 @@ document.getElementById("back-btn").addEventListener("click", () => {
 setInterval(async () => {
   const state = await API.get("stage/state");
   const scroller = bodyEl.parentElement;
+  const inInitialPause = Date.now() < startupLockUntil;
 
   // Reload script content if the remote has selected a different script
   const remoteScriptId = state.active_script_id ? parseInt(state.active_script_id, 10) : null;
@@ -125,8 +127,6 @@ setInterval(async () => {
     speedSlider.value = scrollSpeed;
     speedVal.textContent = scrollSpeed;
   }
-  if (state.is_scrolling && !isScrolling) startScroll();
-  else if (!state.is_scrolling && isScrolling) stopScroll();
 }, STATE_POLL_INTERVAL_MS);
 
 // Load initial script, then reset the remote launch flag
