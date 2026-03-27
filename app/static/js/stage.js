@@ -8,6 +8,13 @@ const queuePanel = document.getElementById("queue-panel");
 const scriptPanel = document.getElementById("script-panel");
 const launchBtn = document.getElementById("launch-btn");
 
+async function applyInstanceName() {
+  const cfg = await API.get("config");
+  const name = cfg.instance_name || "LiveShow";
+  document.getElementById("instance-name").textContent = name;
+  document.title = `${name} – On Stage`;
+}
+
 async function loadQueues() {
   queues = await API.get("queues");
   renderQueues();
@@ -94,3 +101,18 @@ document.addEventListener("keydown", (e) => {
 });
 
 loadQueues();
+applyInstanceName();
+
+// Poll stage state for remote-triggered teleprompter launch
+const STAGE_POLL_INTERVAL_MS = 2000;
+let launchInProgress = false;
+const stagePollId = setInterval(async () => {
+  if (launchInProgress) return;
+  const state = await API.get("stage/state");
+  if (state.launch_teleprompter && state.active_script_id) {
+    launchInProgress = true;
+    clearInterval(stagePollId);
+    await API.post("stage/state", { launch_teleprompter: false });
+    window.location.href = `/teleprompter?script_id=${state.active_script_id}`;
+  }
+}, STAGE_POLL_INTERVAL_MS);

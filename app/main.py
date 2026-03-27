@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 from app.database import engine, Base
-from app.routers import scripts, queues
+from app.routers import scripts, queues, config
 import io
 import logging
 import os
@@ -51,10 +51,12 @@ stage_state = {
     "scroll_position": 0.0,
     "auto_scroll_speed": 3.0,
     "is_scrolling": False,
+    "launch_teleprompter": False,
 }
 
 app.include_router(scripts.router)
 app.include_router(queues.router)
+app.include_router(config.router)
 
 stage_router = APIRouter(prefix="/api/stage", tags=["stage"])
 

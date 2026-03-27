@@ -3,6 +3,13 @@ from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from app.database import Base
 
 
+class AppConfig(Base):
+    __tablename__ = "app_config"
+
+    key = Column(String(64), primary_key=True)
+    value = Column(String(256), nullable=False)
+
+
 class Script(Base):
     __tablename__ = "scripts"
 

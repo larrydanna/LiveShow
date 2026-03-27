@@ -3,7 +3,6 @@ const SCROLL_POST_THROTTLE_MS = 500;
 const STATE_POLL_INTERVAL_MS = 2000;
 const INITIAL_PAUSE_MS = 8000;
 const params = new URLSearchParams(window.location.search);
-const scriptId = params.get("script_id");
 
 const titleEl = document.getElementById("script-title");
 const bodyEl = document.getElementById("script-body");
@@ -15,18 +14,18 @@ let isScrolling = false;
 let scrollSpeed = 3;
 let rafId = null;
 let lastTime = null;
-let startupLockUntil = 0;
+let currentScriptId = params.get("script_id") ? parseInt(params.get("script_id"), 10) : null;
 
-async function loadScript() {
-  if (!scriptId) { titleEl.textContent = "No script selected"; return; }
-  const script = await API.get(`scripts/${scriptId}`);
+async function loadScript(id) {
+  if (!id) { titleEl.textContent = "No script selected"; bodyEl.textContent = ""; return; }
+  const [script, cfg] = await Promise.all([
+    API.get(`scripts/${id}`),
+    API.get("config"),
+  ]);
   titleEl.textContent = script.title;
   bodyEl.textContent = script.body;
-  bodyEl.parentElement.scrollTop = 0;
-  startupLockUntil = Date.now() + INITIAL_PAUSE_MS;
-  const titleBar = document.getElementById("title-bar");
-  titleBar.classList.add("loading");
-  setTimeout(() => titleBar.classList.remove("loading"), INITIAL_PAUSE_MS);
+  const instanceName = cfg.instance_name || "LiveShow";
+  document.title = `${instanceName} – Teleprompter`;
 }
 
 function getPixelsPerSecond() {
@@ -106,13 +105,22 @@ setInterval(async () => {
   const scroller = bodyEl.parentElement;
   const inInitialPause = Date.now() < startupLockUntil;
 
-  if (!inInitialPause) {
-    if (!isScrolling && typeof state.scroll_position === 'number' &&
-        Math.abs(scroller.scrollTop - state.scroll_position) > SCROLL_SYNC_THRESHOLD) {
-      scroller.scrollTop = state.scroll_position;
-    }
-    if (state.is_scrolling && !isScrolling) startScroll();
-    else if (!state.is_scrolling && isScrolling) stopScroll();
+  // Reload script content if the remote has selected a different script
+  const remoteScriptId = state.active_script_id ? parseInt(state.active_script_id, 10) : null;
+  if (remoteScriptId && remoteScriptId !== currentScriptId) {
+    currentScriptId = remoteScriptId;
+    stopScroll();
+    // Mark the stale state as not-scrolling so the sync check below doesn't
+    // restart scrolling using the value fetched before the script change.
+    state.is_scrolling = false;
+    scroller.scrollTop = 0;
+    await loadScript(currentScriptId);
+    await API.post("stage/state", { scroll_position: 0 });
+  }
+
+  if (!isScrolling && typeof state.scroll_position === 'number' &&
+      Math.abs(scroller.scrollTop - state.scroll_position) > SCROLL_SYNC_THRESHOLD) {
+    scroller.scrollTop = state.scroll_position;
   }
   if (state.auto_scroll_speed !== scrollSpeed) {
     scrollSpeed = state.auto_scroll_speed;
@@ -121,4 +129,12 @@ setInterval(async () => {
   }
 }, STATE_POLL_INTERVAL_MS);
 
-loadScript();
+// Load initial script, then reset the remote launch flag
+(async () => {
+  await loadScript(currentScriptId);
+  try {
+    await API.post("stage/state", { launch_teleprompter: false });
+  } catch (_) {
+    // Best-effort reset; non-critical if it fails
+  }
+})();
