@@ -29,14 +29,59 @@ function renderScriptsList() {
     const row = document.createElement("div");
     row.className = "list-group-item d-flex justify-content-between align-items-center";
     row.innerHTML = `<span><strong>${escHtml(s.title)}</strong> <small class="text-muted">by ${escHtml(s.submitted_by)}</small></span>
-      <button class="btn btn-sm btn-danger" data-id="${s.id}">Delete</button>`;
-    row.querySelector("button").addEventListener("click", async () => {
+      <div class="d-flex gap-1">
+        <button class="btn btn-sm btn-outline-secondary btn-edit-script" data-id="${s.id}">Edit</button>
+        <button class="btn btn-sm btn-danger btn-delete-script" data-id="${s.id}">Delete</button>
+      </div>`;
+    row.querySelector(".btn-edit-script").addEventListener("click", () => openEditScriptModal(s.id));
+    row.querySelector(".btn-delete-script").addEventListener("click", async () => {
       await API.delete(`scripts/${s.id}`);
       loadScripts();
     });
     list.appendChild(row);
   });
 }
+
+async function openEditScriptModal(scriptId) {
+  const alertEl = document.getElementById("edit-script-alert");
+  alertEl.style.display = "none";
+  document.getElementById("edit-script-overlay").style.display = "flex";
+  try {
+    const script = await API.get(`scripts/${scriptId}`);
+    document.getElementById("edit-script-id").value = script.id;
+    document.getElementById("edit-script-title").value = script.title;
+    document.getElementById("edit-script-body").value = script.body;
+    document.getElementById("edit-script-submitted-by").value = script.submitted_by;
+  } catch (err) {
+    alertEl.textContent = "Failed to load script: " + err.message;
+    alertEl.style.display = "block";
+  }
+}
+
+document.getElementById("edit-script-save").addEventListener("click", async () => {
+  const id = document.getElementById("edit-script-id").value;
+  const title = document.getElementById("edit-script-title").value.trim();
+  const body = document.getElementById("edit-script-body").value.trim();
+  const submitted_by = document.getElementById("edit-script-submitted-by").value.trim();
+  const alertEl = document.getElementById("edit-script-alert");
+  if (!title || !body || !submitted_by) {
+    alertEl.textContent = "All fields are required.";
+    alertEl.style.display = "block";
+    return;
+  }
+  try {
+    await API.put(`scripts/${id}`, { title, body, submitted_by });
+    document.getElementById("edit-script-overlay").style.display = "none";
+    loadScripts();
+  } catch (err) {
+    alertEl.textContent = "Failed to save: " + err.message;
+    alertEl.style.display = "block";
+  }
+});
+
+document.getElementById("edit-script-cancel").addEventListener("click", () => {
+  document.getElementById("edit-script-overlay").style.display = "none";
+});
 
 document.getElementById("add-script-form").addEventListener("submit", async (e) => {
   e.preventDefault();
