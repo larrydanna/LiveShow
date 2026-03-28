@@ -331,9 +331,36 @@ document.getElementById("import-close").addEventListener("click", () => {
   document.getElementById("import-overlay").style.display = "none";
 });
 
+// ---- Settings Tab ----
+async function loadSettings() {
+  try {
+    const cfg = await API.get("config");
+    document.getElementById("instance-name-input").value = cfg.instance_name || "LiveShow";
+  } catch (err) {
+    console.error("Failed to load settings:", err);
+  }
+}
+
+document.getElementById("settings-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const newName = document.getElementById("instance-name-input").value.trim();
+  const alertEl = document.getElementById("settings-alert");
+  try {
+    await API.put("config", { instance_name: newName });
+    alertEl.className = "alert alert-success";
+    alertEl.textContent = "Settings saved.";
+    alertEl.style.display = "block";
+    setTimeout(() => { alertEl.style.display = "none"; }, 3000);
+  } catch (err) {
+    alertEl.className = "alert alert-danger";
+    alertEl.textContent = "Failed to save settings: " + err.message;
+    alertEl.style.display = "block";
+  }
+});
+
 // Init
 loadScripts();
 loadQueues();
 loadStageState();
 setInterval(loadStageState, STATE_POLL_INTERVAL_MS);
-applyInstanceName();
+loadSettings();
