@@ -228,6 +228,109 @@ document.getElementById("export-btn").addEventListener("click", () => {
   window.location.href = "/api/export";
 });
 
+// ---- Import ----
+let _importReport = null;
+
+document.getElementById("import-btn").addEventListener("click", () => {
+  document.getElementById("import-file-input").click();
+});
+
+document.getElementById("import-file-input").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = ""; // reset so the same file can be chosen again
+
+  const overlay = document.getElementById("import-overlay");
+  const summaryEl = document.getElementById("import-summary");
+  const detailWrap = document.getElementById("import-detail-wrap");
+  const detailEl = document.getElementById("import-detail");
+
+  summaryEl.innerHTML = '<span style="color:#6c757d;">⏳ Importing…</span>';
+  detailWrap.style.display = "none";
+  overlay.style.display = "flex";
+
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/import", { method: "POST", body: fd });
+    const report = await res.json();
+    if (!res.ok) {
+      summaryEl.innerHTML = `<span style="color:#842029;">❌ Import failed: ${escHtml(report.detail || JSON.stringify(report))}</span>`;
+      _importReport = null;
+      return;
+    }
+    _importReport = report;
+    const s = report.summary;
+    summaryEl.innerHTML = `
+      <p style="margin:0 0 0.5rem;">
+        <strong>File:</strong> ${escHtml(report.source_filename)}
+      </p>
+      <table style="border-collapse:collapse; font-size:0.9rem;">
+        <thead><tr>
+          <th style="padding:0.25rem 0.75rem 0.25rem 0; text-align:left;">Type</th>
+          <th style="padding:0.25rem 0.5rem; text-align:right; color:#198754;">Imported</th>
+          <th style="padding:0.25rem 0.5rem; text-align:right; color:#856404;">Skipped</th>
+          <th style="padding:0.25rem 0.5rem; text-align:right; color:#842029;">Failed</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td style="padding:0.2rem 0.75rem 0.2rem 0;">Scripts</td>
+            <td style="padding:0.2rem 0.5rem; text-align:right;">${s.scripts.imported}</td>
+            <td style="padding:0.2rem 0.5rem; text-align:right;">${s.scripts.skipped}</td>
+            <td style="padding:0.2rem 0.5rem; text-align:right;">${s.scripts.failed}</td>
+          </tr>
+          <tr>
+            <td style="padding:0.2rem 0.75rem 0.2rem 0;">Queues</td>
+            <td style="padding:0.2rem 0.5rem; text-align:right;">${s.queues.imported}</td>
+            <td style="padding:0.2rem 0.5rem; text-align:right;">${s.queues.skipped}</td>
+            <td style="padding:0.2rem 0.5rem; text-align:right;">${s.queues.failed}</td>
+          </tr>
+          <tr>
+            <td style="padding:0.2rem 0.75rem 0.2rem 0;">Queue Items</td>
+            <td style="padding:0.2rem 0.5rem; text-align:right;">${s.queue_items.imported}</td>
+            <td style="padding:0.2rem 0.5rem; text-align:right;">${s.queue_items.skipped}</td>
+            <td style="padding:0.2rem 0.5rem; text-align:right;">${s.queue_items.failed}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="margin:0.5rem 0 0; font-size:0.85rem; color:#6c757d;">
+        Stage state: ${escHtml(s.stage_state)}
+      </p>`;
+
+    detailEl.textContent = JSON.stringify(report.details, null, 2);
+    loadScripts();
+    loadQueues();
+  } catch (err) {
+    summaryEl.innerHTML = `<span style="color:#842029;">❌ ${escHtml(err.message)}</span>`;
+    _importReport = null;
+  }
+});
+
+document.getElementById("import-view-details").addEventListener("click", () => {
+  const w = document.getElementById("import-detail-wrap");
+  const btn = document.getElementById("import-view-details");
+  const visible = w.style.display !== "none";
+  w.style.display = visible ? "none" : "block";
+  btn.textContent = visible ? "View Details" : "Hide Details";
+});
+
+document.getElementById("import-download-report").addEventListener("click", () => {
+  if (!_importReport) return;
+  const blob = new Blob([JSON.stringify(_importReport, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const now = new Date();
+  const ts = now.toISOString().slice(0, 19).replace("T", "_").replace(/:/g, "");
+  a.download = `import_report_${ts}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById("import-close").addEventListener("click", () => {
+  document.getElementById("import-overlay").style.display = "none";
+});
+
 // Init
 loadScripts();
 loadQueues();
