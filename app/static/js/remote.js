@@ -403,9 +403,82 @@ document.getElementById("settings-form").addEventListener("submit", async (e) =>
   }
 });
 
+// ---- Pedal Mappings ----
+const PEDAL_ACTION_OPTIONS = [
+  { value: "", label: "— No action —" },
+  { value: "toggle_scroll", label: "Toggle Start/Stop scrolling" },
+  { value: "scroll_up", label: "Scroll up 50px" },
+  { value: "scroll_down", label: "Scroll down 50px" },
+  { value: "page_up", label: "Page up" },
+  { value: "page_down", label: "Page down" },
+];
+
+function renderPedalMappings(mappings) {
+  const list = document.getElementById("pedal-mappings-list");
+  list.innerHTML = "";
+  mappings.forEach((m, i) => {
+    const row = document.createElement("div");
+    row.className = "d-flex gap-2 mb-2 align-items-center";
+    row.dataset.index = i;
+    const actionOpts = PEDAL_ACTION_OPTIONS.map(
+      (o) => `<option value="${o.value}"${m.action === o.value ? " selected" : ""}>${escHtml(o.label)}</option>`
+    ).join("");
+    row.innerHTML = `
+      <input type="text" class="form-control pedal-key-input" maxlength="32" placeholder="Key (e.g. a)" value="${escHtml(m.key)}" style="max-width:110px;" title="Key character sent by the pedal">
+      <select class="form-select pedal-action-select">${actionOpts}</select>
+      <button type="button" class="btn btn-sm btn-outline-danger pedal-remove-btn" title="Remove">✕</button>`;
+    row.querySelector(".pedal-remove-btn").addEventListener("click", () => {
+      row.remove();
+    });
+    list.appendChild(row);
+  });
+}
+
+function collectPedalMappings() {
+  const rows = document.querySelectorAll("#pedal-mappings-list > div");
+  return Array.from(rows).map((row) => ({
+    key: row.querySelector(".pedal-key-input").value.trim(),
+    action: row.querySelector(".pedal-action-select").value,
+  })).filter((m) => m.key);
+}
+
+async function loadPedalSettings() {
+  try {
+    const cfg = await API.get("config/pedal-mappings");
+    renderPedalMappings(cfg.mappings || []);
+  } catch (err) {
+    console.error("Failed to load pedal mappings:", err);
+  }
+}
+
+document.getElementById("pedal-add-btn").addEventListener("click", () => {
+  const list = document.getElementById("pedal-mappings-list");
+  const existing = collectPedalMappings();
+  renderPedalMappings([...existing, { key: "", action: "" }]);
+  const inputs = list.querySelectorAll(".pedal-key-input");
+  if (inputs.length) inputs[inputs.length - 1].focus();
+});
+
+document.getElementById("pedal-save-btn").addEventListener("click", async () => {
+  const alertEl = document.getElementById("pedal-alert");
+  const mappings = collectPedalMappings();
+  try {
+    await API.put("config/pedal-mappings", { mappings });
+    alertEl.className = "alert alert-success";
+    alertEl.textContent = "Pedal mappings saved.";
+    alertEl.style.display = "block";
+    setTimeout(() => { alertEl.style.display = "none"; }, 3000);
+  } catch (err) {
+    alertEl.className = "alert alert-danger";
+    alertEl.textContent = "Failed to save pedal mappings: " + err.message;
+    alertEl.style.display = "block";
+  }
+});
+
 // Init
 loadScripts();
 loadQueues();
 loadStageState();
 setInterval(loadStageState, STATE_POLL_INTERVAL_MS);
 loadSettings();
+loadPedalSettings();
