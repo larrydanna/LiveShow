@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ScriptBase(BaseModel):
@@ -96,3 +96,26 @@ class InstanceConfigRead(BaseModel):
 
 class InstanceConfigUpdate(BaseModel):
     instance_name: str = Field(min_length=1, max_length=64)
+
+
+PEDAL_ACTIONS = {"", "toggle_scroll", "scroll_up", "scroll_down", "page_up", "page_down"}
+
+
+class PedalMapping(BaseModel):
+    key: str = Field(min_length=1, max_length=32)
+    action: str = Field(default="")
+
+    @field_validator("action")
+    @classmethod
+    def validate_action(cls, v: str) -> str:
+        if v not in PEDAL_ACTIONS:
+            raise ValueError(f"action must be one of: {sorted(PEDAL_ACTIONS)}")
+        return v
+
+
+class PedalMappingsRead(BaseModel):
+    mappings: list[PedalMapping]
+
+
+class PedalMappingsUpdate(BaseModel):
+    mappings: list[PedalMapping]

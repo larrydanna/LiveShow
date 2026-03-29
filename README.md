@@ -59,6 +59,40 @@ The application starts on `http://0.0.0.0:8000`. Open a browser and navigate to:
 - **Scripts tab**: Add new scripts (title, body, submitted by), list and delete scripts
 - **Queues tab**: Create, rename, delete queues; add/remove/reorder scripts within a queue
 - **Stage Control tab**: Select active queue/script, toggle auto-scroll, adjust speed, page up/down
+- **Settings tab**: Configure instance name and foot pedal key-to-action mappings
+
+## Foot Pedal (HID Keyboard) Support
+
+LiveShow supports USB foot pedals that operate as HID keyboards (they send keystrokes when pressed).
+
+### Tested Hardware
+- **Ikkegol 3-button USB pedal** — left pedal sends `a`, center pedal sends `b`, right pedal sends `c` by default.
+- Any USB HID keyboard pedal with configurable or fixed key output.
+
+### Default Mapping
+| Pedal | Key | Default Action |
+|-------|-----|----------------|
+| Left | `a` | *(none)* |
+| Center | `b` | Toggle Start/Stop scrolling |
+| Right | `c` | *(none)* |
+
+### Configuring Pedal Mappings
+1. Open the **Remote Management** page (`http://localhost:8000/remote`).
+2. Navigate to the **Settings** tab.
+3. Under **Foot Pedal Mappings**, each row specifies:
+   - **Key** — the character your pedal sends (e.g., `a`, `b`, `c`).
+   - **Action** — what the teleprompter should do when that key is received.
+4. Available actions:
+   - *No action* — pedal press is ignored.
+   - **Toggle Start/Stop scrolling** — start or stop auto-scroll.
+   - **Scroll up 50px** — nudge the view up.
+   - **Scroll down 50px** — nudge the view down.
+   - **Page up** — jump up by one full screen height.
+   - **Page down** — jump down by one full screen height.
+5. Use **+ Add Mapping** to add rows for additional pedal buttons or keys.
+6. Click **Save Pedal Mappings** to persist your configuration.
+
+> **Tip:** Pedal mappings are active only in the **Teleprompter View** (`/teleprompter`). The settings take effect immediately after saving — no page reload is required for a newly opened teleprompter session.
 
 ## REST API
 
@@ -79,6 +113,10 @@ The application starts on `http://0.0.0.0:8000`. Open a browser and navigate to:
 | PUT | `/api/queues/{id}/scripts/reorder` | Reorder scripts in a queue |
 | GET | `/api/stage/state` | Get current stage state |
 | POST | `/api/stage/state` | Update stage state (remote control) |
+| GET | `/api/config` | Get instance configuration |
+| PUT | `/api/config` | Update instance configuration |
+| GET | `/api/config/pedal-mappings` | Get foot pedal key-to-action mappings |
+| PUT | `/api/config/pedal-mappings` | Update foot pedal key-to-action mappings |
 
 Interactive API docs are available at `http://localhost:8000/docs`.
 

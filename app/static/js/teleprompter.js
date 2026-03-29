@@ -16,6 +16,21 @@ let rafId = null;
 let lastTime = null;
 let currentScriptId = params.get("script_id") ? parseInt(params.get("script_id"), 10) : null;
 
+// Pedal mappings: key character -> action name
+let pedalMappings = {};
+
+async function loadPedalMappings() {
+  try {
+    const cfg = await API.get("config/pedal-mappings");
+    pedalMappings = {};
+    (cfg.mappings || []).forEach((m) => {
+      if (m.key) pedalMappings[m.key] = m.action;
+    });
+  } catch (_) {
+    pedalMappings = { b: "toggle_scroll" };
+  }
+}
+
 async function loadScript(id) {
   if (!id) { titleEl.textContent = "No script selected"; bodyEl.textContent = ""; return; }
   const [script, cfg] = await Promise.all([
@@ -68,6 +83,15 @@ function postScrollState() {
   }
 }
 
+function applyPedalAction(action) {
+  const scroller = bodyEl.parentElement;
+  if (action === "toggle_scroll") { if (isScrolling) stopScroll(); else startScroll(); }
+  else if (action === "scroll_up") { scroller.scrollTop -= 50; }
+  else if (action === "scroll_down") { scroller.scrollTop += 50; }
+  else if (action === "page_up") { scroller.scrollTop -= scroller.clientHeight; }
+  else if (action === "page_down") { scroller.scrollTop += scroller.clientHeight; }
+}
+
 startStopBtn.addEventListener("click", () => {
   if (isScrolling) stopScroll(); else startScroll();
 });
@@ -86,6 +110,10 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "PageDown") { e.preventDefault(); scroller.scrollTop += scroller.clientHeight; }
   else if (e.key === "PageUp") { e.preventDefault(); scroller.scrollTop -= scroller.clientHeight; }
   else if (e.key === "Escape") { stopScroll(); window.location.href = "/"; }
+  else {
+    const pedalAction = pedalMappings[e.key];
+    if (pedalAction) { e.preventDefault(); applyPedalAction(pedalAction); }
+  }
 });
 
 document.getElementById("page-up-btn").addEventListener("click", () => {
@@ -129,9 +157,9 @@ setInterval(async () => {
   }
 }, STATE_POLL_INTERVAL_MS);
 
-// Load initial script, then reset the remote launch flag
+// Load initial script, pedal mappings, then reset the remote launch flag
 (async () => {
-  await loadScript(currentScriptId);
+  await Promise.all([loadScript(currentScriptId), loadPedalMappings()]);
   try {
     await API.post("stage/state", { launch_teleprompter: false });
   } catch (_) {
