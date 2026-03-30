@@ -24,8 +24,13 @@ async function loadScripts() {
 
 function renderScriptsList() {
   const list = document.getElementById("scripts-list");
+  const filterEl = document.getElementById("scripts-filter");
+  const filterText = filterEl ? filterEl.value.toLowerCase() : "";
   list.innerHTML = "";
-  allScripts.forEach((s) => {
+  const filtered = filterText
+    ? allScripts.filter((s) => s.title.toLowerCase().includes(filterText) || s.submitted_by.toLowerCase().includes(filterText))
+    : allScripts;
+  filtered.forEach((s) => {
     const row = document.createElement("div");
     row.className = "list-group-item d-flex justify-content-between align-items-center";
     row.innerHTML = `<span><strong>${escHtml(s.title)}</strong> <small class="text-muted">by ${escHtml(s.submitted_by)}</small></span>
@@ -41,6 +46,12 @@ function renderScriptsList() {
     list.appendChild(row);
   });
 }
+
+document.getElementById("scripts-filter").addEventListener("input", renderScriptsList);
+document.getElementById("scripts-filter-clear").addEventListener("click", () => {
+  document.getElementById("scripts-filter").value = "";
+  renderScriptsList();
+});
 
 async function openEditScriptModal(scriptId) {
   const alertEl = document.getElementById("edit-script-alert");

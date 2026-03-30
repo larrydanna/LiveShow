@@ -45,14 +45,34 @@ async function selectQueue(q) {
 }
 
 function renderScripts() {
+  const filterInput = document.getElementById("script-filter");
+  const filterWrap = document.getElementById("script-filter-wrap");
+  const filterText = (filterInput ? filterInput.value : "").toLowerCase();
+  const filtered = filterText
+    ? scripts.filter((item) => item.script.title.toLowerCase().includes(filterText))
+    : scripts;
   scriptPanel.innerHTML = "";
-  scripts.forEach((item, i) => {
+  // Show filter input only when there are scripts to display
+  if (filterWrap) filterWrap.style.display = scripts.length > 0 ? "" : "none";
+  filtered.forEach((item, i) => {
     const card = document.createElement("div");
     card.className = "card" + (selectedScript && selectedScript.script_id === item.script_id ? " selected" : "");
-    card.dataset.index = i;
+    card.dataset.index = scripts.findIndex((s) => s.script_id === item.script_id);
     card.textContent = item.script.title;
     card.addEventListener("click", () => selectScript(item));
     scriptPanel.appendChild(card);
+  });
+}
+
+const scriptFilterInput = document.getElementById("script-filter");
+const scriptFilterClear = document.getElementById("script-filter-clear");
+if (scriptFilterInput) {
+  scriptFilterInput.addEventListener("input", renderScripts);
+}
+if (scriptFilterClear) {
+  scriptFilterClear.addEventListener("click", () => {
+    scriptFilterInput.value = "";
+    renderScripts();
   });
 }
 
@@ -70,11 +90,15 @@ launchBtn.addEventListener("click", () => {
 });
 
 document.addEventListener("keydown", (e) => {
+  // Don't intercept keys when the script filter input is focused
+  if (document.activeElement === scriptFilterInput) return;
+
   if (e.key === "Escape") {
     if (focusMode === "scripts") {
       focusMode = "queues";
       selectedScript = null;
       scripts = [];
+      if (scriptFilterInput) scriptFilterInput.value = "";
       renderScripts();
       launchBtn.disabled = true;
     }
@@ -90,13 +114,17 @@ document.addEventListener("keydown", (e) => {
     else return;
     if (queues[idx]) { selectedQueue = queues[idx]; renderQueues(); cards[idx]?.scrollIntoView({ block: "nearest" }); }
   } else {
+    const filterText = scriptFilterInput ? scriptFilterInput.value.toLowerCase() : "";
+    const visibleScripts = filterText
+      ? scripts.filter((item) => item.script.title.toLowerCase().includes(filterText))
+      : scripts;
     const cards = scriptPanel.querySelectorAll(".card");
-    let idx = selectedScript ? scripts.findIndex((s) => s.script_id === selectedScript.script_id) : -1;
-    if (e.key === "ArrowDown") idx = Math.min(idx + 1, scripts.length - 1);
+    let idx = selectedScript ? visibleScripts.findIndex((s) => s.script_id === selectedScript.script_id) : -1;
+    if (e.key === "ArrowDown") idx = Math.min(idx + 1, visibleScripts.length - 1);
     else if (e.key === "ArrowUp") idx = Math.max(idx - 1, 0);
-    else if (e.key === "Enter" && idx >= 0) { selectScript(scripts[idx]); return; }
+    else if (e.key === "Enter" && idx >= 0) { selectScript(visibleScripts[idx]); return; }
     else return;
-    if (scripts[idx]) { selectedScript = scripts[idx]; renderScripts(); cards[idx]?.scrollIntoView({ block: "nearest" }); }
+    if (visibleScripts[idx]) { selectedScript = visibleScripts[idx]; renderScripts(); cards[idx]?.scrollIntoView({ block: "nearest" }); }
   }
 });
 
