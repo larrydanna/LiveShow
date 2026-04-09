@@ -39,6 +39,8 @@ async function loadScript(id) {
   ]);
   titleEl.textContent = script.title;
   bodyEl.textContent = script.body;
+  bodyEl.style.fontFamily = script.font_face || "";
+  bodyEl.style.fontSize = script.font_size || "";
   const instanceName = cfg.instance_name || "LiveShow";
   document.title = `${instanceName} – Teleprompter`;
 }

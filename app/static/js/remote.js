@@ -63,6 +63,8 @@ async function openEditScriptModal(scriptId) {
     document.getElementById("edit-script-title").value = script.title;
     document.getElementById("edit-script-body").value = script.body;
     document.getElementById("edit-script-submitted-by").value = script.submitted_by;
+    document.getElementById("edit-script-font-face").value = script.font_face || "";
+    document.getElementById("edit-script-font-size").value = script.font_size || "";
   } catch (err) {
     alertEl.textContent = "Failed to load script: " + err.message;
     alertEl.style.display = "block";
@@ -74,6 +76,8 @@ document.getElementById("edit-script-save").addEventListener("click", async () =
   const title = document.getElementById("edit-script-title").value.trim();
   const body = document.getElementById("edit-script-body").value.trim();
   const submitted_by = document.getElementById("edit-script-submitted-by").value.trim();
+  const font_face = document.getElementById("edit-script-font-face").value.trim() || null;
+  const font_size = document.getElementById("edit-script-font-size").value.trim() || null;
   const alertEl = document.getElementById("edit-script-alert");
   if (!title || !body || !submitted_by) {
     alertEl.textContent = "All fields are required.";
@@ -81,7 +85,7 @@ document.getElementById("edit-script-save").addEventListener("click", async () =
     return;
   }
   try {
-    await API.put(`scripts/${id}`, { title, body, submitted_by });
+    await API.put(`scripts/${id}`, { title, body, submitted_by, font_face, font_size });
     document.getElementById("edit-script-overlay").style.display = "none";
     loadScripts();
   } catch (err) {
@@ -97,7 +101,7 @@ document.getElementById("edit-script-cancel").addEventListener("click", () => {
 document.getElementById("add-script-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
-  await API.post("scripts", { title: fd.get("title"), body: fd.get("body"), submitted_by: fd.get("submitted_by") });
+  await API.post("scripts", { title: fd.get("title"), body: fd.get("body"), submitted_by: fd.get("submitted_by"), font_face: fd.get("font_face") || null, font_size: fd.get("font_size") || null });
   e.target.reset();
   loadScripts();
 });

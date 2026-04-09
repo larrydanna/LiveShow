@@ -101,6 +101,8 @@ async def import_data(
                 title=title,
                 body=body,
                 submitted_by=submitted_by,
+                font_face=str(raw_script.get("font_face") or "").strip() or None,
+                font_size=str(raw_script.get("font_size") or "").strip() or None,
                 created_at=datetime.now(timezone.utc),
             )
             sp = db.begin_nested()

@@ -99,6 +99,8 @@ def export_data(db: Session = Depends(get_db)):
             "title": s.title,
             "body": s.body,
             "submitted_by": s.submitted_by,
+            "font_face": s.font_face,
+            "font_size": s.font_size,
             "created_at": s.created_at.isoformat() if s.created_at else None,
         }
         for s in all_scripts

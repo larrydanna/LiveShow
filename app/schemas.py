@@ -7,6 +7,8 @@ class ScriptBase(BaseModel):
     title: str
     body: str
     submitted_by: str
+    font_face: Optional[str] = None
+    font_size: Optional[str] = None
 
 
 class ScriptCreate(ScriptBase):
@@ -17,6 +19,8 @@ class ScriptUpdate(BaseModel):
     title: Optional[str] = None
     body: Optional[str] = None
     submitted_by: Optional[str] = None
+    font_face: Optional[str] = None
+    font_size: Optional[str] = None
 
 
 class ScriptListItem(BaseModel):
@@ -30,6 +34,8 @@ class ScriptListItem(BaseModel):
 
 class ScriptDetail(ScriptListItem):
     body: str
+    font_face: Optional[str] = None
+    font_size: Optional[str] = None
 
 
 # Queue schemas
