@@ -80,7 +80,7 @@ document.getElementById("edit-script-save").addEventListener("click", async () =
   const font_size = document.getElementById("edit-script-font-size").value.trim() || null;
   const alertEl = document.getElementById("edit-script-alert");
   if (!title || !body || !submitted_by) {
-    alertEl.textContent = "All fields are required.";
+    alertEl.textContent = "Title, body, and submitted by are required.";
     alertEl.style.display = "block";
     return;
   }
