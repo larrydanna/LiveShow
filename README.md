@@ -5,6 +5,15 @@ Teleprompter application to provide real time text for a live stage performance.
 
 LiveShow is a multi-tier teleprompter application designed for live stage environments. It runs on-premises on common hardware and supports PC, Apple Mac, and Linux.
 
+## Maintenance Workflow
+
+- **GitHub Issue**: Create an issue at GitHub
+- **Assign to Agent**: Assign the issue to an agent
+- **Wait for Pull Request**: Let the agent submit a pull request
+- **Pull the Lates**: Pull the branch locally and test it
+- **Iterate (Optional)** Respond with comments and repeat
+- **Approve the Pull Request** Once approved, pull the repo and verify on `main` 
+
 ## Architecture
 
 - **Database**: SQLite (embedded, no server required)
