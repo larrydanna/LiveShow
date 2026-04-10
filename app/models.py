@@ -17,6 +17,8 @@ class Script(Base):
     title = Column(String(256), nullable=False)
     body = Column(Text, nullable=False)
     submitted_by = Column(String(48), nullable=False)
+    font_face = Column(String(256), nullable=True)
+    font_size = Column(String(64), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 

@@ -134,6 +134,12 @@
         <div class="mb-2">
           <input name="submitted_by" class="form-control" placeholder="Submitted by" required>
         </div>
+        <div class="mb-2">
+          <input name="font_face" class="form-control" placeholder="Font face (e.g. Georgia, Arial, sans-serif) — optional">
+        </div>
+        <div class="mb-2">
+          <input name="font_size" class="form-control" placeholder="Font size (e.g. 2.5rem, larger, 24px) — optional">
+        </div>
         <button type="submit" class="btn btn-primary">Add Script</button>
       </form>
       <h5 class="mb-2">All Scripts</h5>
@@ -233,6 +239,14 @@
         <div>
           <label class="form-label fw-bold">Submitted By</label>
           <input id="edit-script-submitted-by" class="form-control" maxlength="48" required>
+        </div>
+        <div>
+          <label class="form-label fw-bold">Font Face</label>
+          <input id="edit-script-font-face" class="form-control" maxlength="256" placeholder="e.g. Georgia, Arial, sans-serif (optional)">
+        </div>
+        <div>
+          <label class="form-label fw-bold">Font Size</label>
+          <input id="edit-script-font-size" class="form-control" maxlength="64" placeholder="e.g. 2.5rem, larger, 24px (optional)">
         </div>
         <div id="edit-script-alert" class="alert alert-danger" style="display:none;"></div>
       </form>
