@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
-from app.database import engine, Base, get_db
+from app.database import engine, Base, get_db, run_migrations
 from app.routers import scripts, queues, config
 from app.routers import import_data as import_data_router
 from app import models
@@ -38,6 +38,7 @@ def get_lan_ip() -> str:
 
 
 Base.metadata.create_all(bind=engine)
+run_migrations()
 
 app = FastAPI(title="LiveShow Teleprompter", redirect_slashes=False)
 
