@@ -125,7 +125,7 @@ Interactive API docs are available at `http://localhost:8000/docs`.
 SQLite database is created automatically at `./liveshow.db` on first run.
 
 ### Schema
-- **Script**: `id`, `title` (max 256 chars), `body`, `submitted_by` (max 48 chars), `created_at`
+- **Script**: `id`, `title` (max 256 chars), `body`, `submitted_by` (max 48 chars), `font_face` (max 256 chars, optional), `font_size` (max 64 chars, optional), `created_at`
 - **ScriptQueue**: `id`, `name` (max 256 chars, unique), `created_at`
 - **ScriptQueueItem**: `id`, `queue_id`, `script_id`, `position` (ordering within queue)
 
